@@ -16,6 +16,7 @@ from app.scoring import (
 )
 
 app = FastAPI(title="Elevio Career API", version="0.1.0")
+API_PREFIX = "/api"
 
 app.add_middleware(
     CORSMiddleware,
@@ -39,12 +40,13 @@ class UploadHistoryBody(BaseModel):
     ai_output: dict[str, Any]
 
 
-@app.get("/health")
+@app.get(f"{API_PREFIX}/health")
 def health() -> dict[str, str | bool]:
     return {"status": "ok", "groq_configured": bool(settings.groq_api_key)}
 
 
-@app.post("/analyze")
+
+@app.post(f"{API_PREFIX}/analyze")
 async def analyze(
     resume_pdf: UploadFile = File(...),
     job_text: str = Form(...),
@@ -123,7 +125,7 @@ async def analyze(
     return response
 
 
-@app.post("/upload_history")
+@app.post(f"{API_PREFIX}/upload_history")
 def upload_history(body: UploadHistoryBody) -> dict[str, Any]:
     row_id = insert_analysis(
         body.user_id,
@@ -135,7 +137,7 @@ def upload_history(body: UploadHistoryBody) -> dict[str, Any]:
     return {"id": row_id, "ok": True}
 
 
-@app.get("/history")
+@app.get(f"{API_PREFIX}/history")
 def history(user_id: Optional[str] = None, limit: int = 10) -> dict[str, Any]:
     rows = list_history(user_id, min(limit, 50))
     parsed = []
