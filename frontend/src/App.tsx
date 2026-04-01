@@ -1,0 +1,397 @@
+import { useCallback, useEffect, useState } from "react";
+
+const API = import.meta.env.VITE_API_URL ?? "";
+
+type ScoreBreakdown = {
+  keyword_score: number;
+  relevance_score: number;
+  impact_score: number;
+  clarity_score: number;
+};
+
+type FixItem = { fix: string; impact: number };
+
+export type AnalyzeResponse = {
+  total_score: number;
+  raw_model_score: number;
+  ai_match_score: number;
+  interview_probability: number;
+  missing_skills: string[];
+  weak_points: string[];
+  improved_points: string[];
+  fix_priority: FixItem[];
+  potential_score_after_fixes: number;
+  score_breakdown: ScoreBreakdown;
+  demo_mode?: boolean;
+};
+
+type HistoryItem = {
+  id: number;
+  user_id: string | null;
+  total_score: number;
+  created_at: string;
+  summary: { missing_skills: string[]; total_score?: number };
+};
+
+function pctLabel(n: number) {
+  return `${Math.round(n)}%`;
+}
+
+function ProgressBar({ value, accent }: { value: number; accent: string }) {
+  const v = Math.max(0, Math.min(100, value));
+  return (
+    <div className="h-3 w-full rounded-full bg-elevio-border overflow-hidden">
+      <div
+        className="h-full rounded-full transition-all duration-700 ease-out"
+        style={{ width: `${v}%`, background: accent }}
+      />
+    </div>
+  );
+}
+
+function fixTier(impact: number): "critical" | "medium" | "optional" {
+  if (impact >= 14) return "critical";
+  if (impact >= 8) return "medium";
+  return "optional";
+}
+
+const tierStyle: Record<string, { dot: string; label: string }> = {
+  critical: { dot: "bg-red-400", label: "High impact" },
+  medium: { dot: "bg-amber-400", label: "Medium" },
+  optional: { dot: "bg-emerald-400", label: "Nice to have" },
+};
+
+export default function App() {
+  const [jobText, setJobText] = useState("");
+  const [file, setFile] = useState<File | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<AnalyzeResponse | null>(null);
+  const [copyMsg, setCopyMsg] = useState<string | null>(null);
+  const [history, setHistory] = useState<HistoryItem[]>([]);
+
+  const fetchHistory = useCallback(async () => {
+    try {
+      const r = await fetch(`${API}/api/history?limit=5`);
+      if (!r.ok) return;
+      const data = await r.json();
+      setHistory(data.items ?? []);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchHistory();
+  }, [fetchHistory]);
+
+  async function onAnalyze(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setResult(null);
+    if (!file) {
+      setError("Please choose a PDF resume.");
+      return;
+    }
+    if (jobText.trim().length < 30) {
+      setError("Paste a fuller job description (at least a few sentences).");
+      return;
+    }
+    setLoading(true);
+    try {
+      let userId = localStorage.getItem("user_id"); // check if exists
+      if (!userId) {                               // if not, create
+        userId = crypto.randomUUID();
+        localStorage.setItem("user_id", userId);   // save for future
+      }
+      
+      const fd = new FormData();
+      fd.append("resume_pdf", file);
+      fd.append("job_text", jobText);
+      fd.append("user_id", userId);
+      const r = await fetch(`${API}/api/analyze`, { method: "POST", body: fd });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        setError(typeof data.detail === "string" ? data.detail : "Analysis failed.");
+        return;
+      }
+      setResult(data as AnalyzeResponse);
+
+      await fetch(`${API}/api/upload_history`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_id: userId,
+          resume_text: "(stored from session)",
+          job_text: jobText.slice(0, 2000),
+          total_score: data.total_score,
+          ai_output: { ...data, missing_skills: data.missing_skills },
+        }),
+      }).catch(() => {});
+      fetchHistory();
+    } catch {
+      setError("Network error — is the API running on port 8000?");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function copyImproved() {
+    if (!result?.improved_points?.length) return;
+    const text = result.improved_points.join("\n\n");
+    await navigator.clipboard.writeText(text);
+    setCopyMsg("Copied improved bullets");
+    setTimeout(() => setCopyMsg(null), 2000);
+  }
+
+  return (
+    <div className="min-h-screen bg-[#050508] text-zinc-100">
+      <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-40">
+        <div className="absolute -top-40 -right-40 h-96 w-96 rounded-full bg-elevio-purple/30 blur-3xl" />
+        <div className="absolute top-1/2 -left-40 h-80 w-80 rounded-full bg-elevio-blue/20 blur-3xl" />
+      </div>
+
+      <header className="relative border-b border-elevio-border/80 bg-elevio-dark/80 backdrop-blur-md">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-4 py-4 md:px-6">
+          <div className="flex items-center gap-3">
+            <img
+              src="/logo.png"
+              alt="Elevio Career"
+              className="h-11 w-auto object-contain"
+            />
+            <div className="leading-tight">
+              <p className="text-lg font-semibold text-elevio-blue">Elevio Career</p>
+              <p className="text-sm text-elevio-muted">AI Career Coach</p>
+            </div>
+          </div>
+          <p className="max-w-md text-sm text-elevio-muted">
+            Upload your resume and a job description. Get match insight, missing skills, and
+            ranked fixes.
+          </p>
+        </div>
+      </header>
+
+      <main className="relative mx-auto max-w-6xl px-4 py-10 md:px-6">
+        <section className="grid gap-10 md:grid-cols-2">
+          {/* LEFT SIDE OF THE PAGE */}
+          <form
+            onSubmit={onAnalyze}
+            className="space-y-6 rounded-2xl border border-elevio-border bg-elevio-surface/60 p-6 shadow-xl shadow-black/40"
+          >
+            <h2 className="text-lg font-semibold text-white">Analyze</h2>
+            <div>
+              <label className="mb-2 block text-sm font-medium text-zinc-300">
+                Resume (PDF)
+              </label>
+              <input
+                type="file"
+                accept="application/pdf"
+                className="block w-full text-sm text-zinc-300 file:mr-4 file:rounded-lg file:border-0 file:bg-elevio-blue/20 file:px-4 file:py-2 file:text-sm file:font-medium file:text-elevio-blue hover:file:bg-elevio-blue/30"
+                onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+              />
+            </div>
+            <div>
+              <label className="mb-2 block text-sm font-medium text-zinc-300">
+                Job description
+              </label>
+              <textarea
+                value={jobText}
+                onChange={(e) => setJobText(e.target.value)}
+                rows={14}
+                placeholder="Paste the full job posting here…"
+                className="w-full resize-y rounded-xl border border-elevio-border bg-[#0c0c12] px-4 py-3 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-elevio-blue/50 focus:outline-none focus:ring-2 focus:ring-elevio-blue/20"
+              />
+            </div>
+            {error && (
+              <p className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-200">
+                {error}
+              </p>
+            )}
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full rounded-xl bg-gradient-to-r from-elevio-purple to-elevio-blue px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-elevio-blue/25 transition hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {loading ? "Analyzing…" : "Analyze"}
+            </button>
+            {result?.demo_mode && (
+              <p className="text-xs text-amber-200/90">
+                Demo mode: set <code className="text-zinc-400">GROQ_API_KEY</code> in{" "}
+                <code className="text-zinc-400">backend/.env</code> for live AI.
+              </p>
+            )}
+          </form>
+
+          {/* RIGHT SIDE OF THE PAGE */}
+          <div className="space-y-6">
+            {!result && !loading && (
+              <div className="rounded-2xl border border-dashed border-elevio-border/80 bg-elevio-surface/30 p-8 text-center text-elevio-muted">
+                <p className="text-sm">
+                  Results will show your match score, interview probability estimate, missing
+                  skills, weak bullets, and prioritized fixes.
+                </p>
+              </div>
+            )}
+
+            {loading && (
+              <div className="flex flex-col items-center justify-center gap-4 rounded-2xl border border-elevio-border bg-elevio-surface/40 p-12">
+                <div className="h-10 w-10 animate-spin rounded-full border-2 border-elevio-blue border-t-transparent" />
+                <p className="text-sm text-elevio-muted">Extracting PDF and running analysis…</p>
+              </div>
+            )}
+
+            {result && (
+              <div className="space-y-6 rounded-2xl border border-elevio-border bg-elevio-surface/60 p-6 shadow-xl">
+                <h2 className="text-lg font-semibold text-white">Results</h2>
+
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-elevio-muted">Match score</span>
+                    <span className="font-semibold text-elevio-blue">
+                      {pctLabel(result.total_score)}
+                    </span>
+                  </div>
+                  <ProgressBar value={result.total_score} accent="linear-gradient(90deg,#6B4EE6,#2F7CF6)" />
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-elevio-muted">Interview probability (estimate)</span>
+                    <span className="font-semibold text-pink-300">
+                      {pctLabel(result.interview_probability)}
+                    </span>
+                  </div>
+                  <ProgressBar value={result.interview_probability} accent="linear-gradient(90deg,#E94FA8,#2F7CF6)" />
+                </div>
+
+                <div className="grid gap-3 rounded-xl border border-elevio-border/80 bg-[#0c0c12] p-4 text-xs md:grid-cols-2">
+                  <div>
+                    <p className="text-elevio-muted mb-1">Score breakdown</p>
+                    <ul className="space-y-1 text-zinc-300">
+                      <li>Keywords (40% max): {result.score_breakdown.keyword_score}</li>
+                      <li>Relevance (30% max): {result.score_breakdown.relevance_score}</li>
+                      <li>Impact (20% max): {result.score_breakdown.impact_score}</li>
+                      <li>Clarity (10% max): {result.score_breakdown.clarity_score}</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <p className="text-elevio-muted mb-1">Potential after fixes</p>
+                    <p className="text-2xl font-bold text-emerald-300">
+                      {pctLabel(result.potential_score_after_fixes)}
+                    </p>
+                    <p className="text-elevio-muted mt-1">
+                      Model blend: {result.raw_model_score.toFixed(0)} · AI match:{" "}
+                      {result.ai_match_score.toFixed(0)}
+                    </p>
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="mb-2 text-sm font-medium text-zinc-200">Missing skills</h3>
+                  <ul className="list-inside list-disc space-y-1 text-sm text-zinc-400">
+                    {result.missing_skills.map((s) => (
+                      <li key={s}>{s}</li>
+                    ))}
+                  </ul>
+                </div>
+
+                <div>
+                  <h3 className="mb-2 text-sm font-medium text-zinc-200">Weak points</h3>
+                  <ul className="space-y-2 text-sm text-zinc-400">
+                    {result.weak_points.map((s) => (
+                      <li
+                        key={s}
+                        className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2"
+                      >
+                        {s}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                <div>
+                  <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                    <h3 className="text-sm font-medium text-zinc-200">Fix priority</h3>
+                  </div>
+                  <ol className="space-y-3">
+                    {result.fix_priority.map((f, i) => {
+                      const tier = fixTier(f.impact);
+                      const st = tierStyle[tier];
+                      return (
+                        <li
+                          key={`${f.fix}-${i}`}
+                          className="flex gap-3 rounded-xl border border-elevio-border/80 bg-[#0c0c12] p-3"
+                        >
+                          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-zinc-800 text-xs font-semibold text-zinc-300">
+                            {i + 1}
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm text-zinc-200">{f.fix}</p>
+                            <p className="mt-1 flex items-center gap-2 text-xs text-elevio-muted">
+                              <span className={`inline-block h-2 w-2 rounded-full ${st.dot}`} />
+                              {st.label} · +{f.impact} pts est.
+                            </p>
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ol>
+                </div>
+
+                <div>
+                  <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                    <h3 className="text-sm font-medium text-zinc-200">Improved bullet ideas</h3>
+                    <button
+                      type="button"
+                      onClick={copyImproved}
+                      className="rounded-lg border border-elevio-border px-3 py-1.5 text-xs font-medium text-elevio-blue hover:bg-elevio-blue/10"
+                    >
+                      Copy all
+                    </button>
+                  </div>
+                  {copyMsg && <p className="mb-2 text-xs text-emerald-400">{copyMsg}</p>}
+                  <ul className="space-y-2 text-sm text-zinc-300">
+                    {result.improved_points.map((s) => (
+                      <li
+                        key={s}
+                        className="rounded-lg border border-elevio-blue/25 bg-elevio-blue/5 px-3 py-2"
+                      >
+                        {s}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            )}
+
+            {history.length > 0 && (
+              <div className="rounded-2xl border border-elevio-border bg-elevio-surface/40 p-6">
+                <h3 className="mb-3 text-sm font-semibold text-zinc-200">Recent analyses</h3>
+                <ul className="space-y-2 text-xs text-elevio-muted">
+                  {history.map((h) => (
+                    <li
+                      key={h.id}
+                      className="flex justify-between gap-2 border-b border-elevio-border/50 pb-2 last:border-0"
+                    >
+                      <span>
+                        Score {h.total_score?.toFixed?.(0) ?? h.total_score} ·{" "}
+                        {(h.summary.missing_skills ?? []).slice(0, 2).join(", ") || "—"}
+                      </span>
+                      <span className="shrink-0 text-zinc-500">
+                        {new Date(h.created_at).toLocaleString()}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        </section>
+      </main>
+
+      <footer className="relative border-t border-elevio-border/60 py-6 text-center text-xs text-zinc-600">
+        Elevio Career · Resume × Job fit analysis
+      </footer>
+    </div>
+  );
+}
