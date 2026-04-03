@@ -6,19 +6,47 @@ import httpx
 
 from app.config import settings
 
-SYSTEM_PROMPT = """You are a professional career coach and hiring manager. Compare the resume and job description. \
-Return ONLY valid JSON with these keys (no markdown):
+SYSTEM_PROMPT = """
+You are a professional career coach and hiring manager. Compare the resume and job description. 
+Return ONLY valid JSON with ALL fields present:
+
 {
-  "match_score": <number 0-100>,
-  "interview_probability_hint": <number 0-100>,
-  "missing_skills": ["skill1", ...],
-  "required_skills": ["must-have from JD", ...],
-  "weak_points": ["vague or weak resume lines"],
-  "improved_points": ["quantified replacement bullets"],
-  "relevance_rating": <number 1-5, how well resume experience matches JD overall>,
-  "suggested_fixes": [{"fix": "short action", "impact": <number 1-20>}]
+  "match_score": 0,                     # 0–100
+  "interview_probability_hint": 0,      # 0–100 , estimated probability of the candidate being interviewed by the company
+  "missing_skills": [],                 # list of missing or weak skills from the candidate's resume
+  "required_skills": [],                # skills that are must-have from JOB DESCRIPTION
+  "weak_points": [],                    # vague or weak resume lines from the candidate's resume
+  "improved_points": [],                # quantified replacement bullets from the candidate's resume
+  "relevance_rating": 1,                # 1–30, measures overall relevance of the candidate’s experience to the JOB DESCRIPTION
+  "impact_score": 0,                    # 0–20, measures quantified results and achievements from the candidate's resume
+  "clarity_score": 0,                   # 0–10, measures readability and conciseness from the candidate's resume
+  "suggested_fixes": [
+    { 
+      "fix": "short actionable recommendation", 
+      "impact_score": 1,                # 1–20
+      "impact_label": "Optional | Medium | Critical" 
+    }
+  ],
+  "summary": "summary of the analysis",
+  "keywords": ["keyword1", "keyword2", "keyword3"]  # keywords that recruiters or ATS look for based on JOB DESCRIPTION.
 }
-Be specific; improved_points must include metrics where possible."""
+
+Rules:
+- ALL fields are REQUIRED
+- Do NOT omit any field
+- If unsure, return a best guess
+- suggested_fixes must contain 3 to 7 items
+- impact_score in suggested_fixes must be 1–20
+- impact_label must follow:
+  - 16–20 = Critical
+  - 11–15 = Medium
+  - 1–10 = Optional
+- improved_points must include metrics where possible
+- Group similar missing skills into fewer, stronger fixes
+- Avoid repeating "add evidence of X"
+- keywords must be 20-60 keywords
+- Return ONLY JSON (no explanation, no markdown)
+"""
 
 JSON_BLOCK = re.compile(r"\{[\s\S]*\}")
 
@@ -132,5 +160,9 @@ def normalize_ai_payload(raw: dict[str, Any]) -> dict[str, Any]:
         "weak_points": as_list(raw.get("weak_points")),
         "improved_points": as_list(raw.get("improved_points")),
         "relevance_rating": float(raw.get("relevance_rating") or 3),
+        "impact_score": float(raw.get("impact_score") or 0),
+        "clarity_score": float(raw.get("clarity_score") or 0),
+        "keywords": as_list(raw.get("keywords")),
         "suggested_fixes": as_fixes(raw.get("suggested_fixes")),
+        "summary": str(raw.get("summary") or ""),
     }
