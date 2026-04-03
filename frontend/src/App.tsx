@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 const API = import.meta.env.VITE_API_URL ?? "";
 
@@ -12,15 +12,13 @@ type ScoreBreakdown = {
 type FixItem = { fix: string; impact: number };
 
 export type AnalyzeResponse = {
+  summary: string;
   total_score: number;
-  raw_model_score: number;
-  ai_match_score: number;
   interview_probability: number;
   missing_skills: string[];
   weak_points: string[];
   improved_points: string[];
   fix_priority: FixItem[];
-  potential_score_after_fixes: number;
   score_breakdown: ScoreBreakdown;
   demo_mode?: boolean;
 };
@@ -50,8 +48,8 @@ function ProgressBar({ value, accent }: { value: number; accent: string }) {
 }
 
 function fixTier(impact: number): "critical" | "medium" | "optional" {
-  if (impact >= 14) return "critical";
-  if (impact >= 8) return "medium";
+  if (impact >= 16) return "critical";
+  if (impact >= 11) return "medium";
   return "optional";
 }
 
@@ -69,6 +67,59 @@ export default function App() {
   const [result, setResult] = useState<AnalyzeResponse | null>(null);
   const [copyMsg, setCopyMsg] = useState<string | null>(null);
   const [history, setHistory] = useState<HistoryItem[]>([]);
+  const loadingBoxRef = useRef<HTMLDivElement | null>(null);
+  const resultsBoxRef = useRef<HTMLDivElement | null>(null);
+
+  type BreakdownKey = "keyword" | "relevance" | "impact" | "clarity";
+  const [openBreakdownExplain, setOpenBreakdownExplain] = useState<BreakdownKey | null>(null);
+  const breakdownExplainWrapRef = useRef<HTMLDivElement | null>(null);
+
+  const breakdownExplain: Record<BreakdownKey, { title: string; body: string }> = {
+    keyword: {
+      title: "Keywords (40% max)",
+      body:
+        "Measures how many important skills or keywords from the job description appear in your resume.\n\nLow score → your resume may be missing key terms recruiters or ATS look for.\nHigh score → your resume likely matches those key terms recruiters or ATS look for.",
+    },
+    relevance: {
+      title: "Relevance (30% max)",
+      body:
+        "Measures how well your experience matches the job role overall.\n\nHigh score → your past roles and responsibilities are closely aligned with what the job requires.\nLow score → your experience may not closely match the job’s responsibilities or domain.",
+    },
+    impact: {
+      title: "Impact (20% max)",
+      body:
+        "Measures how much quantified results or achievements you show.\n\nHigh score → you clearly highlight measurable accomplishments (e.g., “cut processing time by 35%”).\nLow score → mostly vague or unquantified descriptions.",
+    },
+    clarity: {
+      title: "Clarity (10% max)",
+      body:
+        "Measures how clear, concise, and easy to understand your resume is.\n\nHigh score → strong formatting, action verbs, and readable bullets.\nLow score → vague, wordy, or confusing bullets.",
+    },
+  };
+
+  useEffect(() => {
+    if (!loading) return;
+    // Scroll to the loading box so users immediately see that the analysis started.
+    loadingBoxRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [loading]);
+
+  useEffect(() => {
+    if (!result) return;
+    // When results appear (especially on portrait screens), bring them into view.
+    resultsBoxRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+   
+  }, [result]);
+
+  useEffect(() => {
+    if (!openBreakdownExplain) return;
+    function onDocMouseDown(e: MouseEvent) {
+      const el = breakdownExplainWrapRef.current;
+      if (!el) return;
+      if (!el.contains(e.target as Node)) setOpenBreakdownExplain(null);
+    }
+    document.addEventListener("mousedown", onDocMouseDown);
+    return () => document.removeEventListener("mousedown", onDocMouseDown);
+  }, [openBreakdownExplain]);
 
   const fetchHistory = useCallback(async () => {
     try {
@@ -98,6 +149,7 @@ export default function App() {
       return;
     }
     setLoading(true);
+    setOpenBreakdownExplain(null);
     try {
       let userId = localStorage.getItem("user_id"); // check if exists
       if (!userId) {                               // if not, create
@@ -112,7 +164,20 @@ export default function App() {
       const r = await fetch(`${API}/api/analyze`, { method: "POST", body: fd });
       const data = await r.json().catch(() => ({}));
       if (!r.ok) {
-        setError(typeof data.detail === "string" ? data.detail : "Analysis failed.");
+        // if (![400, 429, 502].includes(r.status)) {
+        //   setError("Error! please contact yanteng.chen11@gmail.com");
+        // } 
+       
+        if (r.status === 429) {
+          setError("Too many requests. Please wait a moment and try again.");
+        }
+        else {
+          setError(
+            typeof data.detail === "string"
+              ? data.detail
+              : "Analysis failed."
+          );
+        }
         return;
       }
       setResult(data as AnalyzeResponse);
@@ -234,14 +299,20 @@ export default function App() {
             )}
 
             {loading && (
-              <div className="flex flex-col items-center justify-center gap-4 rounded-2xl border border-elevio-border bg-elevio-surface/40 p-12">
+              <div
+                ref={loadingBoxRef}
+                className="flex flex-col items-center justify-center gap-4 rounded-2xl border border-elevio-border bg-elevio-surface/40 p-12"
+              >
                 <div className="h-10 w-10 animate-spin rounded-full border-2 border-elevio-blue border-t-transparent" />
                 <p className="text-sm text-elevio-muted">Extracting PDF and running analysis…</p>
               </div>
             )}
 
             {result && (
-              <div className="space-y-6 rounded-2xl border border-elevio-border bg-elevio-surface/60 p-6 shadow-xl">
+              <div
+                ref={resultsBoxRef}
+                className="space-y-6 rounded-2xl border border-elevio-border bg-elevio-surface/60 p-6 shadow-xl"
+              >
                 <h2 className="text-lg font-semibold text-white">Results</h2>
 
                 <div className="space-y-2">
@@ -264,28 +335,259 @@ export default function App() {
                   <ProgressBar value={result.interview_probability} accent="linear-gradient(90deg,#E94FA8,#2F7CF6)" />
                 </div>
 
-                <div className="grid gap-3 rounded-xl border border-elevio-border/80 bg-[#0c0c12] p-4 text-xs md:grid-cols-2">
-                  <div>
+                <div className="grid gap-3 rounded-xl border border-elevio-border/80 bg-[#0c0c12] p-4 text-xs md:grid-cols-1">
+                  <div ref={breakdownExplainWrapRef}>
                     <p className="text-elevio-muted mb-1">Score breakdown</p>
                     <ul className="space-y-1 text-zinc-300">
-                      <li>Keywords (40% max): {result.score_breakdown.keyword_score}</li>
-                      <li>Relevance (30% max): {result.score_breakdown.relevance_score}</li>
-                      <li>Impact (20% max): {result.score_breakdown.impact_score}</li>
-                      <li>Clarity (10% max): {result.score_breakdown.clarity_score}</li>
+                      <li className="relative flex items-start justify-between gap-3">
+                        <span>
+                          {breakdownExplain.keyword.title}: {result.score_breakdown.keyword_score}
+                        </span>
+                        <button
+                          type="button"
+                          aria-label="Explain keyword score"
+                          onClick={() =>
+                            setOpenBreakdownExplain((v) => (v === "keyword" ? null : "keyword"))
+                          }
+                          className="rounded-md p-1.5 text-zinc-400 hover:bg-white/5 hover:text-white"
+                        >
+                          <svg
+                            width="14"
+                            height="14"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            xmlns="http://www.w3.org/2000/svg"
+                          >
+                            <path
+                              d="M10.5 18C14.6421 18 18 14.6421 18 10.5C18 6.35786 14.6421 3 10.5 3C6.35786 3 3 6.35786 3 10.5C3 14.6421 6.35786 18 10.5 18Z"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                            />
+                            <path
+                              d="M21 21L16.65 16.65"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                            />
+                          </svg>
+                        </button>
+                        {openBreakdownExplain === "keyword" && (
+                          <div className="absolute right-0 z-20 mt-8 w-72 max-w-[90vw] rounded-xl border border-elevio-border bg-elevio-surface/95 p-3 text-[11px] text-zinc-200 shadow-xl">
+                            <p className="mb-1 font-medium text-white">Keywords (40% max): {result.score_breakdown.keyword_score}</p>
+                            {breakdownExplain.keyword.body.split("\n").map((line, idx) => {
+  const trimmed = line.trim();
+
+  if (!trimmed) {
+    return <p key={idx} className="h-1">&nbsp;</p>;
+  }
+
+  return (
+    <p key={idx} className="leading-relaxed">
+      {trimmed
+        .replace("Low score →", "__LOW__")
+        .replace("High score →", "__HIGH__")
+        .split(/(__LOW__|__HIGH__)/g)
+        .map((part, i) => {
+          if (part === "__LOW__") return <strong key={i}>Low score →</strong>;
+          if (part === "__HIGH__") return <strong key={i}>High score →</strong>;
+          return <span key={i}>{part}</span>;
+        })}
+    </p>
+  );
+})}
+                          </div>
+                        )}
+                      </li>
+
+                      <li className="relative flex items-start justify-between gap-3">
+                        <span>
+                          {breakdownExplain.relevance.title}: {result.score_breakdown.relevance_score}
+                        </span>
+                        <button
+                          type="button"
+                          aria-label="Explain relevance score"
+                          onClick={() =>
+                            setOpenBreakdownExplain((v) => (v === "relevance" ? null : "relevance"))
+                          }
+                          className="rounded-md p-1.5 text-zinc-400 hover:bg-white/5 hover:text-white"
+                        >
+                          <svg
+                            width="14"
+                            height="14"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            xmlns="http://www.w3.org/2000/svg"
+                          >
+                            <path
+                              d="M10.5 18C14.6421 18 18 14.6421 18 10.5C18 6.35786 14.6421 3 10.5 3C6.35786 3 3 6.35786 3 10.5C3 14.6421 6.35786 18 10.5 18Z"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                            />
+                            <path
+                              d="M21 21L16.65 16.65"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                            />
+                          </svg>
+                        </button>
+                        {openBreakdownExplain === "relevance" && (
+                          <div className="absolute right-0 z-20 mt-8 w-72 max-w-[90vw] rounded-xl border border-elevio-border bg-elevio-surface/95 p-3 text-[11px] text-zinc-200 shadow-xl">
+                            <p className="mb-1 font-medium text-white">Relevance (30% max): {result.score_breakdown.relevance_score}</p>
+                            {breakdownExplain.relevance.body.split("\n").map((line, idx) => {
+  const trimmed = line.trim();
+
+  if (!trimmed) {
+    return <p key={idx} className="h-1">&nbsp;</p>;
+  }
+
+  return (
+    <p key={idx} className="leading-relaxed">
+      {trimmed
+        .replace("Low score →", "__LOW__")
+        .replace("High score →", "__HIGH__")
+        .split(/(__LOW__|__HIGH__)/g)
+        .map((part, i) => {
+          if (part === "__LOW__") return <strong key={i}>Low score →</strong>;
+          if (part === "__HIGH__") return <strong key={i}>High score →</strong>;
+          return <span key={i}>{part}</span>;
+        })}
+    </p>
+  );
+})}
+                          </div>
+                        )}
+                      </li>
+
+                      <li className="relative flex items-start justify-between gap-3">
+                        <span>
+                          {breakdownExplain.impact.title}: {result.score_breakdown.impact_score}
+                        </span>
+                        <button
+                          type="button"
+                          aria-label="Explain impact score"
+                          onClick={() =>
+                            setOpenBreakdownExplain((v) => (v === "impact" ? null : "impact"))
+                          }
+                          className="rounded-md p-1.5 text-zinc-400 hover:bg-white/5 hover:text-white"
+                        >
+                          <svg
+                            width="14"
+                            height="14"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            xmlns="http://www.w3.org/2000/svg"
+                          >
+                            <path
+                              d="M10.5 18C14.6421 18 18 14.6421 18 10.5C18 6.35786 14.6421 3 10.5 3C6.35786 3 3 6.35786 3 10.5C3 14.6421 6.35786 18 10.5 18Z"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                            />
+                            <path
+                              d="M21 21L16.65 16.65"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                            />
+                          </svg>
+                        </button>
+                        {openBreakdownExplain === "impact" && (
+                          <div className="absolute right-0 z-20 mt-8 w-72 max-w-[90vw] rounded-xl border border-elevio-border bg-elevio-surface/95 p-3 text-[11px] text-zinc-200 shadow-xl">
+                            <p className="mb-1 font-medium text-white">Impact (20% max): {result.score_breakdown.impact_score}</p>
+                            {breakdownExplain.impact.body.split("\n").map((line, idx) => {
+  const trimmed = line.trim();
+
+  if (!trimmed) {
+    return <p key={idx} className="h-1">&nbsp;</p>;
+  }
+
+  return (
+    <p key={idx} className="leading-relaxed">
+      {trimmed
+        .replace("Low score →", "__LOW__")
+        .replace("High score →", "__HIGH__")
+        .split(/(__LOW__|__HIGH__)/g)
+        .map((part, i) => {
+          if (part === "__LOW__") return <strong key={i}>Low score →</strong>;
+          if (part === "__HIGH__") return <strong key={i}>High score →</strong>;
+          return <span key={i}>{part}</span>;
+        })}
+    </p>
+  );
+})}
+                          </div>
+                        )}
+                      </li>
+
+                      <li className="relative flex items-start justify-between gap-3">
+                        <span>
+                          {breakdownExplain.clarity.title}: {result.score_breakdown.clarity_score}
+                        </span>
+                        <button
+                          type="button"
+                          aria-label="Explain clarity score"
+                          onClick={() =>
+                            setOpenBreakdownExplain((v) => (v === "clarity" ? null : "clarity"))
+                          }
+                          className="rounded-md p-1.5 text-zinc-400 hover:bg-white/5 hover:text-white"
+                        >
+                          <svg
+                            width="14"
+                            height="14"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            xmlns="http://www.w3.org/2000/svg"
+                          >
+                            <path
+                              d="M10.5 18C14.6421 18 18 14.6421 18 10.5C18 6.35786 14.6421 3 10.5 3C6.35786 3 3 6.35786 3 10.5C3 14.6421 6.35786 18 10.5 18Z"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                            />
+                            <path
+                              d="M21 21L16.65 16.65"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                            />
+                          </svg>
+                        </button>
+                        {openBreakdownExplain === "clarity" && (
+                          <div className="absolute right-0 z-20 mt-8 w-72 max-w-[90vw] rounded-xl border border-elevio-border bg-elevio-surface/95 p-3 text-[11px] text-zinc-200 shadow-xl">
+                            <p className="mb-1 font-medium text-white">Clarity (10% max): {result.score_breakdown.clarity_score}</p>
+                            {breakdownExplain.clarity.body.split("\n").map((line, idx) => {
+  const trimmed = line.trim();
+
+  if (!trimmed) {
+    return <p key={idx} className="h-1">&nbsp;</p>;
+  }
+
+  return (
+    <p key={idx} className="leading-relaxed">
+      {trimmed
+        .replace("Low score →", "__LOW__")
+        .replace("High score →", "__HIGH__")
+        .split(/(__LOW__|__HIGH__)/g)
+        .map((part, i) => {
+          if (part === "__LOW__") return <strong key={i}>Low score →</strong>;
+          if (part === "__HIGH__") return <strong key={i}>High score →</strong>;
+          return <span key={i}>{part}</span>;
+        })}
+    </p>
+  );
+})}
+                          </div>
+                        )}
+                      </li>
                     </ul>
-                  </div>
-                  <div>
-                    <p className="text-elevio-muted mb-1">Potential after fixes</p>
-                    <p className="text-2xl font-bold text-emerald-300">
-                      {pctLabel(result.potential_score_after_fixes)}
-                    </p>
-                    <p className="text-elevio-muted mt-1">
-                      Model blend: {result.raw_model_score.toFixed(0)} · AI match:{" "}
-                      {result.ai_match_score.toFixed(0)}
-                    </p>
                   </div>
                 </div>
 
+                <div>
+                  <h3 className="mb-2 text-sm font-medium text-zinc-200">Summary</h3>
+                  <p className="text-sm text-zinc-400">{result.summary}</p>
+                </div>
+
+              
                 <div>
                   <h3 className="mb-2 text-sm font-medium text-zinc-200">Missing skills</h3>
                   <ul className="list-inside list-disc space-y-1 text-sm text-zinc-400">
@@ -294,6 +596,8 @@ export default function App() {
                     ))}
                   </ul>
                 </div>
+
+                
 
                 <div>
                   <h3 className="mb-2 text-sm font-medium text-zinc-200">Weak points</h3>

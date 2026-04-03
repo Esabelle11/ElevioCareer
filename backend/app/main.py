@@ -10,9 +10,7 @@ from app.config import settings
 from app.db import check_user_limit, init_db, insert_analysis, list_history
 from app.pdf_extract import extract_text_from_pdf
 from app.scoring import (
-    build_fix_priority,
     compute_scores,
-    potential_score_after_fixes,
 )
 
 app = FastAPI(title="Elevio Career API", version="0.1.0")
@@ -79,41 +77,23 @@ async def analyze(
         ai_raw = await analyze_with_groq(resume_text, job_text)
     except Exception as e:  # noqa: BLE001
         raise HTTPException(status_code=502, detail=f"AI analysis failed: {e}") from e
-
+    # print(ai_raw)
     ai_norm = normalize_ai_payload(ai_raw)
+    # print(ai_norm)
     scored = compute_scores(resume_text, job_text, ai_norm)
+    # print("\n score: ",scored)
 
-    fix_from_ai = ai_norm["suggested_fixes"]
-    fix_merged = build_fix_priority(
-        ai_norm["missing_skills"],
-        ai_norm["weak_points"],
-        ai_norm["improved_points"],
-    )
-    seen = {f["fix"][:80] for f in fix_merged}
-    for f in fix_from_ai:
-        k = f["fix"][:80]
-        if k not in seen:
-            seen.add(k)
-            fix_merged.append(f)
-    fix_merged.sort(key=lambda x: x["impact"], reverse=True)
-
-    total_score = scored["total_score"]
-    ai_match = ai_norm["match_score"]
-    blended = round((total_score * 0.65 + ai_match * 0.35), 1)
-    interview_probability = min(100.0, max(scored["interview_probability"], ai_norm["interview_probability_hint"] * 0.5 + blended * 0.5))
-    interview_probability = round(interview_probability, 1)
-    potential = potential_score_after_fixes(blended, fix_merged)
-
+    
+    
+    
     response: dict[str, Any] = {
-        "total_score": blended,
-        "raw_model_score": total_score,
-        "ai_match_score": ai_match,
-        "interview_probability": interview_probability,
+        "total_score": scored["total_match_score"],
+        "interview_probability": ai_norm["interview_probability_hint"],
+        "summary": ai_norm["summary"],
         "missing_skills": ai_norm["missing_skills"],
         "weak_points": ai_norm["weak_points"],
         "improved_points": ai_norm["improved_points"],
-        "fix_priority": fix_merged[:12],
-        "potential_score_after_fixes": potential,
+        "fix_priority": ai_norm["suggested_fixes"],
         "score_breakdown": {
             "keyword_score": scored["keyword_score"],
             "relevance_score": scored["relevance_score"],
