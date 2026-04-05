@@ -226,7 +226,7 @@ export default function App() {
             />
             <div className="leading-tight">
               <p className="text-lg font-semibold text-elevio-blue">Elevio Career</p>
-              <p className="text-sm text-elevio-muted">AI Career Coach</p>
+              <p className="text-sm text-elevio-muted">Free Resume Analysis Tool for Job Matching</p>
             </div>
           </div>
           <p className="max-w-md text-sm text-elevio-muted">
@@ -236,7 +236,10 @@ export default function App() {
         </div>
       </header>
 
-      <main className="relative mx-auto max-w-6xl px-4 py-10 md:px-6">
+      <main
+        id="analyze"
+        className="relative mx-auto max-w-6xl scroll-mt-24 px-4 py-10 md:px-6"
+      >
         <section className="grid gap-10 md:grid-cols-2">
           {/* LEFT SIDE OF THE PAGE */}
           <form
@@ -692,6 +695,64 @@ export default function App() {
           </div>
         </section>
       </main>
+
+      {/* SEO copy stays in the DOM (still indexable). Collapsed by default so the analyzer stays primary. */}
+      <section
+        aria-label="About Elevio Career — free resume analysis and job matching"
+        className="mx-auto max-w-4xl border-t border-elevio-border/40 px-4 pb-6 pt-4 text-elevio-muted md:px-6"
+      >
+        <details className="group rounded-2xl border border-elevio-border/70 bg-elevio-surface/40">
+          <summary className="cursor-pointer list-none px-4 py-4 md:px-5 md:py-4 [&::-webkit-details-marker]:hidden">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-sm font-semibold text-white">About Elevio Career</p>
+                <p className="mt-1 text-xs text-elevio-muted md:text-sm">
+                  Free resume analysis tool for job matching, ATS keywords, and resume-to-job fit.
+                  <span className="text-elevio-muted/80"> Tap to read more.</span>
+                </p>
+              </div>
+              <span
+                className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-elevio-border/80 bg-[#0c0c12] text-xs text-zinc-300 transition-transform group-open:rotate-180"
+                aria-hidden
+              >
+                ▼
+              </span>
+            </div>
+          </summary>
+          <div className="border-t border-elevio-border/50 px-4 pb-5 pt-2 md:px-5">
+            <h1 className="mb-4 text-2xl font-bold text-white md:text-3xl">
+              Free Resume Analysis Tool for Job Matching
+            </h1>
+
+            <p className="mb-4">
+              Elevio Career is an AI-powered resume analysis tool that helps you compare your resume
+              with any job description. Instantly discover missing skills, improve keyword relevance,
+              and increase your chances of passing ATS systems.
+            </p>
+
+            <h2 className="mb-2 mt-6 text-xl font-semibold text-zinc-100">How it works</h2>
+            <ul className="ml-6 list-disc space-y-1">
+              <li>Upload your resume (PDF)</li>
+              <li>Paste a job description</li>
+              <li>Get AI-powered insights and improvement suggestions</li>
+              <li>Free to use with up to 3 analyses per day</li>
+            </ul>
+
+            <h2 className="mb-2 mt-6 text-xl font-semibold text-zinc-100">Why use Elevio Career?</h2>
+            <ul className="ml-6 list-disc space-y-1">
+              <li>ATS-friendly resume optimization</li>
+              <li>Real job-to-resume matching</li>
+              <li>No signup required</li>
+              <li>It is Free</li>
+            </ul>
+            <p className="mt-5 text-xs text-elevio-muted">
+              <a href="#analyze" className="text-elevio-blue hover:underline">
+                Jump to upload &amp; analyze
+              </a>
+            </p>
+          </div>
+        </details>
+      </section>
 
       <footer className="relative border-t border-elevio-border/60 py-6 text-center text-xs text-zinc-600">
         Elevio Career · Resume × Job fit analysis
