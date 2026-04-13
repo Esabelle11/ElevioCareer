@@ -1,0 +1,7 @@
+playwright
+psycopg2-binary
+requests
+beautifulsoup4
+scikit-learn
+pydantic==2.10.4
+pydantic-settings==2.7.0

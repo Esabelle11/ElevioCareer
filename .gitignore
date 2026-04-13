@@ -1,5 +1,12 @@
 backend/.venv/
 backend/elevio_career.db
 backend/.env
+
 frontend/node_modules/
 frontend/dist/
+
+pipeline/.env
+pipeline/venv/
+
+__pycache__
+.DS_Store
