@@ -8,5 +8,13 @@ class Settings(BaseSettings):
     groq_model: str = "meta-llama/llama-4-scout-17b-16e-instruct"
     database_path: str = "elevio_career.db"
 
+    DB_HOST: str
+    DB_NAME: str
+    DB_PASSWORD: str
+    DB_USER: str
+    DB_PORT: int = 5432   # 👈 add this
+
+
 
 settings = Settings()
+

@@ -1,5 +1,17 @@
 backend/.venv/
 backend/elevio_career.db
 backend/.env
+
 frontend/node_modules/
 frontend/dist/
+
+pipeline/.env
+pipeline/venv/
+
+__pycache__
+.DS_Store
+*.pyc
+backend/.DS_Store
+backend/app/__pycache__/__init__.cpython-311.pyc
+backend/app/__pycache__/config.cpython-311.pyc
+backend/app/__pycache__/main.cpython-311.pyc
