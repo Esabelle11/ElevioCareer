@@ -7,10 +7,10 @@ def run():
 
 
     jobs = []
-    # try:
-    #     jobs += scrape_indeed()
-    # except Exception as e:
-    #     print("Indeed failed:", e)
+    try:
+        jobs += scrape_indeed()
+    except Exception as e:
+        print("Indeed failed:", e)
 
     try:
         jobs += scrape_jobstreet()

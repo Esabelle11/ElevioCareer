@@ -20,7 +20,7 @@ def scrape_jobstreet():
         # cards = page.query_selector_all("article, div[data-automation], div")
         cards = page.query_selector_all('[data-testid="job-card"]')
        
-       
+        cards = cards[:20]
         print("cards found:", len(cards))
 
         for c in cards:

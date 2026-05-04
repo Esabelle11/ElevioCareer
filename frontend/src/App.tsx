@@ -15,6 +15,7 @@ export type AnalyzeResponse = {
   summary: string;
   total_score: number;
   interview_probability: number;
+  job_role?: string;
   missing_skills: string[];
   weak_points: string[];
   improved_points: string[];
@@ -22,6 +23,41 @@ export type AnalyzeResponse = {
   score_breakdown: ScoreBreakdown;
   demo_mode?: boolean;
 };
+
+type JobRecItem = {
+  title: string;
+  company: string;
+  description: string;
+  job_url: string;
+  source: string;
+  relevance_score: number;
+};
+
+type JobRecommendationResponse = {
+  jobs: JobRecItem[];
+  location: string;
+  job_role: string;
+  batch_id: string;
+  count: number;
+};
+
+/** Used if /api/job_locations cannot be loaded */
+const FALLBACK_JOB_LOCATIONS = [
+  "Kuala Lumpur",
+  "Petaling Jaya",
+  "Singapore",
+  "Penang",
+  "Johor Bahru",
+  "Seremban",
+  "Ipoh",
+  "Melaka",
+  "Putrajaya",
+  "Cyberjaya",
+  "Shah Alam",
+  "Klang",
+  "Kota Kinabalu",
+  "Kuching",
+];
 
 type HistoryItem = {
   id: number;
@@ -67,8 +103,16 @@ export default function App() {
   const [result, setResult] = useState<AnalyzeResponse | null>(null);
   const [copyMsg, setCopyMsg] = useState<string | null>(null);
   const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [locationOptions, setLocationOptions] = useState<string[]>(FALLBACK_JOB_LOCATIONS);
+  const [selectedLocation, setSelectedLocation] = useState("");
+  const [searchRole, setSearchRole] = useState("");
+  const [jobRecs, setJobRecs] = useState<JobRecItem[]>([]);
+  const [jobRecLoading, setJobRecLoading] = useState(false);
+  const [jobRecError, setJobRecError] = useState<string | null>(null);
+  const [jobRecComplete, setJobRecComplete] = useState(false);
   const loadingBoxRef = useRef<HTMLDivElement | null>(null);
   const resultsBoxRef = useRef<HTMLDivElement | null>(null);
+  const jobRecSectionRef = useRef<HTMLDivElement | null>(null);
 
   type BreakdownKey = "keyword" | "relevance" | "impact" | "clarity";
   const [openBreakdownExplain, setOpenBreakdownExplain] = useState<BreakdownKey | null>(null);
@@ -135,6 +179,34 @@ export default function App() {
   useEffect(() => {
     fetchHistory();
   }, [fetchHistory]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = await fetch(`${API}/api/job_locations`);
+        if (!r.ok) return;
+        const data = await r.json();
+        if (!cancelled && Array.isArray(data.locations) && data.locations.length > 0) {
+          setLocationOptions(data.locations);
+        }
+      } catch {
+        /* keep fallback */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!result) return;
+    const role = (result.job_role ?? "").trim();
+    setSearchRole(role.length >= 2 ? role : "Software Engineer");
+    setJobRecs([]);
+    setJobRecError(null);
+    setJobRecComplete(false);
+  }, [result]);
 
   async function onAnalyze(e: React.FormEvent) {
     e.preventDefault();
@@ -207,6 +279,60 @@ export default function App() {
     await navigator.clipboard.writeText(text);
     setCopyMsg("Copied improved bullets");
     setTimeout(() => setCopyMsg(null), 2000);
+  }
+
+  async function onFindJobs(e: React.FormEvent) {
+    e.preventDefault();
+    setJobRecError(null);
+    if (!file || !result) {
+      setJobRecError("Upload a resume and run analysis first.");
+      return;
+    }
+    const loc = selectedLocation.trim();
+    if (!loc) {
+      setJobRecError("Choose a location.");
+      return;
+    }
+    const role = searchRole.trim();
+    if (role.length < 2) {
+      setJobRecError("Enter a job role or title (at least 2 characters).");
+      return;
+    }
+    let userId = localStorage.getItem("user_id");
+    if (!userId) {
+      userId = crypto.randomUUID();
+      localStorage.setItem("user_id", userId);
+    }
+    setJobRecLoading(true);
+    try {
+      const fd = new FormData();
+      fd.append("resume_pdf", file);
+      fd.append("job_role", role);
+      fd.append("location", loc);
+      fd.append("user_id", userId);
+      const r = await fetch(`${API}/api/job_recommendation`, { method: "POST", body: fd });
+      const data = (await r.json().catch(() => ({}))) as JobRecommendationResponse & {
+        detail?: unknown;
+      };
+      if (!r.ok) {
+        const msg =
+          typeof data.detail === "string"
+            ? data.detail
+            : "Could not fetch job recommendations.";
+        setJobRecError(msg);
+        setJobRecs([]);
+        setJobRecComplete(false);
+        return;
+      }
+      setJobRecs(data.jobs ?? []);
+      setJobRecComplete(true);
+      jobRecSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    } catch {
+      setJobRecError("Network error — is the API running?");
+      setJobRecs([]);
+    } finally {
+      setJobRecLoading(false);
+    }
   }
 
   return (
@@ -667,6 +793,129 @@ export default function App() {
                       </li>
                     ))}
                   </ul>
+                </div>
+
+                <div
+                  ref={jobRecSectionRef}
+                  id="job-recommendations"
+                  className="scroll-mt-24 border-t border-elevio-border/80 pt-6"
+                >
+                  <h3 className="mb-1 text-sm font-semibold text-white">
+                    Job opportunities near you
+                  </h3>
+                  <p className="mb-4 text-xs text-elevio-muted">
+                    We search Indeed and JobStreet for roles like yours, then rank listings by fit
+                    with your resume (top 10).
+                  </p>
+                  <form onSubmit={onFindJobs} className="space-y-4">
+                    <div>
+                      <label
+                        htmlFor="job-search-location"
+                        className="mb-2 block text-sm font-medium text-zinc-300"
+                      >
+                        Location
+                      </label>
+                      <select
+                        id="job-search-location"
+                        value={selectedLocation}
+                        onChange={(e) => setSelectedLocation(e.target.value)}
+                        className="w-full rounded-xl border border-elevio-border bg-[#0c0c12] px-4 py-3 text-sm text-zinc-100 focus:border-elevio-blue/50 focus:outline-none focus:ring-2 focus:ring-elevio-blue/20"
+                      >
+                        <option value="">Select a city…</option>
+                        {locationOptions.map((loc) => (
+                          <option key={loc} value={loc}>
+                            {loc}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label
+                        htmlFor="job-search-role"
+                        className="mb-2 block text-sm font-medium text-zinc-300"
+                      >
+                        Role / keyword for search
+                      </label>
+                      <input
+                        id="job-search-role"
+                        type="text"
+                        value={searchRole}
+                        onChange={(e) => setSearchRole(e.target.value)}
+                        placeholder="e.g. Software Engineer"
+                        className="w-full rounded-xl border border-elevio-border bg-[#0c0c12] px-4 py-3 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-elevio-blue/50 focus:outline-none focus:ring-2 focus:ring-elevio-blue/20"
+                      />
+                      <p className="mt-1 text-xs text-elevio-muted">
+                        Pre-filled from your analysis. Edit if you want a different search term.
+                      </p>
+                    </div>
+                    {jobRecError && (
+                      <p className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-200">
+                        {jobRecError}
+                      </p>
+                    )}
+                    <button
+                      type="submit"
+                      disabled={jobRecLoading}
+                      className="w-full rounded-xl border border-elevio-blue/40 bg-elevio-blue/15 px-4 py-3 text-sm font-semibold text-elevio-blue transition hover:bg-elevio-blue/25 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {jobRecLoading ? "Searching & ranking…" : "Find matching jobs"}
+                    </button>
+                  </form>
+
+                  {jobRecs.length > 0 && (
+                    <ul className="mt-6 space-y-3">
+                      {jobRecs.map((job, idx) => (
+                        <li
+                          key={`${job.job_url}-${idx}`}
+                          className="rounded-xl border border-elevio-border/80 bg-[#0c0c12] p-4"
+                        >
+                          <div className="flex flex-wrap items-start justify-between gap-2">
+                            <div className="min-w-0 flex-1">
+                              <p className="font-medium text-zinc-100">{job.title}</p>
+                              <p className="mt-0.5 text-sm text-elevio-muted">
+                                {job.company}
+                                {job.source ? (
+                                  <span className="text-zinc-600">
+                                    {" "}
+                                    · <span className="uppercase">{job.source}</span>
+                                  </span>
+                                ) : null}
+                              </p>
+                            </div>
+                            <span className="shrink-0 rounded-lg bg-emerald-500/15 px-2 py-1 text-xs font-medium text-emerald-300">
+                              {job.relevance_score}% match
+                            </span>
+                          </div>
+                          {job.description ? (
+                            <p className="mt-2 line-clamp-3 text-xs text-zinc-500">{job.description}</p>
+                          ) : null}
+                          {job.job_url ? (
+                            <a
+                              href={job.job_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="mt-3 inline-flex text-sm font-medium text-elevio-blue hover:underline"
+                            >
+                              View listing →
+                            </a>
+                          ) : null}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+
+                  {!jobRecLoading && jobRecs.length === 0 && jobRecError === null && !jobRecComplete && (
+                    <p className="mt-4 text-xs text-elevio-muted">
+                      Results appear here after you choose a location and run the search. Large PDFs
+                      and slow job sites may take a minute.
+                    </p>
+                  )}
+                  {!jobRecLoading && jobRecComplete && jobRecs.length === 0 && (
+                    <p className="mt-4 text-xs text-amber-200/90">
+                      No job listings were returned for this search (sites may be blocking automated
+                      access, or there are no matches). Try another city or role.
+                    </p>
+                  )}
                 </div>
               </div>
             )}

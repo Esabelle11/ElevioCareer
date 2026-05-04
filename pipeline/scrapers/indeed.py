@@ -14,6 +14,7 @@ def scrape_indeed():
         page.wait_for_timeout(8000)
 
         cards = page.query_selector_all("div.job_seen_beacon")
+        cards = cards[:20]
         print("cards found:", len(cards))
 
         for c in cards:

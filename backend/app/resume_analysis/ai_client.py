@@ -29,6 +29,8 @@ Return ONLY valid JSON with ALL fields present:
   ],
   "summary": "summary of the analysis",
   "keywords": ["keyword1", "keyword2", "keyword3"]  # keywords that recruiters or ATS look for based on JOB DESCRIPTION.
+  "current_or_recent_role": "Most recent role identified in the resume",
+  "job_role": "Predicted best-fit job role for the candidate"
 }
 
 Rules:
@@ -165,4 +167,5 @@ def normalize_ai_payload(raw: dict[str, Any]) -> dict[str, Any]:
         "keywords": as_list(raw.get("keywords")),
         "suggested_fixes": as_fixes(raw.get("suggested_fixes")),
         "summary": str(raw.get("summary") or ""),
+        "job_role":str(raw.get("job_role") or ""),
     }

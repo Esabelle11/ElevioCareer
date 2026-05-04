@@ -5,3 +5,9 @@ httpx==0.28.1
 pymupdf==1.25.1
 pydantic==2.10.4
 pydantic-settings==2.7.0
+
+playwright
+psycopg2-binary
+requests
+scikit-learn
+

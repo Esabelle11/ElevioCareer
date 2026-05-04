@@ -1,3 +1,4 @@
+import asyncio
 import json
 from typing import Any, Optional
 
@@ -5,13 +6,17 @@ from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from app.ai_client import analyze_with_groq, normalize_ai_payload
+from app.resume_analysis.ai_client import analyze_with_groq, normalize_ai_payload
 from app.config import settings
-from app.db import check_user_limit, init_db, insert_analysis, list_history
-from app.pdf_extract import extract_text_from_pdf
-from app.scoring import (
+from app.db.connection import check_user_limit, init_db, insert_analysis, list_history
+from app.resume_analysis.pdf_extract import extract_text_from_pdf
+from app.resume_analysis.scoring import (
     compute_scores,
 )
+from app.job_services.run_scrapper import run_scrapper
+from app.job_services.ranker import get_top_jobs
+from app.job_services.locations import JOB_SEARCH_LOCATIONS
+
 
 app = FastAPI(title="Elevio Career API", version="0.1.0")
 API_PREFIX = "/api"
@@ -41,6 +46,11 @@ class UploadHistoryBody(BaseModel):
 @app.get(f"{API_PREFIX}/health")
 def health() -> dict[str, str | bool]:
     return {"status": "ok", "groq_configured": bool(settings.groq_api_key)}
+
+
+@app.get(f"{API_PREFIX}/job_locations")
+def job_locations() -> dict[str, Any]:
+    return {"locations": JOB_SEARCH_LOCATIONS}
 
 
 
@@ -84,11 +94,10 @@ async def analyze(
     # print("\n score: ",scored)
 
     
-    
-    
     response: dict[str, Any] = {
         "total_score": scored["total_match_score"],
         "interview_probability": ai_norm["interview_probability_hint"],
+        "job_role":ai_norm["job_role"],
         "summary": ai_norm["summary"],
         "missing_skills": ai_norm["missing_skills"],
         "weak_points": ai_norm["weak_points"],
@@ -139,3 +148,56 @@ def history(user_id: Optional[str] = None, limit: int = 10) -> dict[str, Any]:
             }
         )
     return {"items": parsed}
+
+
+@app.post(f"{API_PREFIX}/job_recommendation")
+async def job_recommendation(
+    resume_pdf: UploadFile = File(...),
+    job_role: str = Form(...),
+    location: str = Form(...),
+    user_id: str = Form(...),
+) -> dict[str, Any]:
+    if not user_id.strip():
+        raise HTTPException(status_code=400, detail="user_id is required.")
+
+    loc = location.strip()
+    if loc not in JOB_SEARCH_LOCATIONS:
+        raise HTTPException(
+            status_code=400,
+            detail="Unknown location. Pick a city from GET /api/job_locations.",
+        )
+
+    role = job_role.strip()
+    if len(role) < 2:
+        raise HTTPException(status_code=400, detail="job_role is too short.")
+
+    if not resume_pdf.filename or not resume_pdf.filename.lower().endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="Please upload a PDF resume.")
+
+    try:
+        raw_bytes = await resume_pdf.read()
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(status_code=400, detail=f"Could not read PDF: {e}") from e
+
+    if len(raw_bytes) > 15 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="PDF too large (max 15MB).")
+
+    try:
+        resume_text = extract_text_from_pdf(raw_bytes)
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(status_code=400, detail=f"Could not read PDF: {e}") from e
+
+    if len(resume_text.strip()) < 40:
+        raise HTTPException(status_code=400, detail="Resume text too short — check the PDF.")
+
+    # Playwright sync API must not run on the asyncio loop (FastAPI / uvicorn).
+    batch_id = await asyncio.to_thread(run_scrapper, loc, role)
+    jobs = get_top_jobs(batch_id, resume_text)
+
+    return {
+        "jobs": jobs,
+        "location": loc,
+        "job_role": role,
+        "batch_id": batch_id,
+        "count": len(jobs),
+    }
