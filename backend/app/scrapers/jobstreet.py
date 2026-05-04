@@ -31,14 +31,14 @@ def _jobstreet_likely_blocked(page) -> bool:
 
 def scrape_jobstreet(location, keyword):
     jobs = []
-    print("In job street scraper")
+    print("In job street scraper", flush=True)
 
     base = jobstreet_search_base(location)
     location_url = location.replace(" ", "-")
     keyword_url = keyword.replace(" ", "-")
     url = f"{base.rstrip('/')}/{keyword_url}-jobs/in-{location_url}"
 
-    print("url:", url)
+    print("url:", url, flush=True)
 
     tz = "Asia/Singapore" if is_singapore_location(location) else "Asia/Kuala_Lumpur"
 
@@ -65,7 +65,7 @@ def scrape_jobstreet(location, keyword):
         cards = page.query_selector_all('[data-testid="job-card"]')
 
         cards = cards[:10]
-        print("cards found:", len(cards))
+        print("cards found:", len(cards), flush=True)
 
         job_page = context.new_page()
 
@@ -118,6 +118,8 @@ def scrape_jobstreet(location, keyword):
                             "description": description,
                         }
                     )
+                print("card done", flush=True)
+
 
             except Exception:
                 continue
