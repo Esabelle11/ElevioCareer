@@ -47,7 +47,7 @@ def scrape_jobstreet(location, keyword):
         context = new_browser_context(browser, timezone_id=tz)
         page = context.new_page()
 
-        page.goto(url, timeout=3000, wait_until="domcontentloaded")
+        page.goto(url, timeout=30000, wait_until="domcontentloaded")
         page.wait_for_timeout(4000)
 
         if _jobstreet_likely_blocked(page):
