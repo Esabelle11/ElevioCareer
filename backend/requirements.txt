@@ -15,4 +15,4 @@ scikit-learn
 # redis
 
 
-sentence-transformers
+# sentence-transformers
