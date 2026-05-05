@@ -1,6 +1,6 @@
 import random
 
-from app.scrapers.indeed import scrape_indeed
+# from app.scrapers.indeed import scrape_indeed
 from app.scrapers.jobstreet import scrape_jobstreet
 from app.db.connection import upsert_job
 
