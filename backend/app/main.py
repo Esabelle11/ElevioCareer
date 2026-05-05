@@ -18,7 +18,6 @@ from app.resume_analysis.scoring import (
 from app.job_services.run_scrapper import run_scrapper
 from app.job_services.ranker import get_top_jobs,rank_jobs
 from app.job_services.locations import JOB_SEARCH_LOCATIONS
-from app.worker.queue import enqueue_scrape_job
 
 app = FastAPI(title="Elevio Career API", version="0.1.0")
 API_PREFIX = "/api"
@@ -175,10 +174,7 @@ async def job_scrapping(
 
     job_id = str(uuid.uuid4())
 
-    if settings.USE_WORKER:
-        enqueue_scrape_job(loc, role, job_id)
-    else:
-        await asyncio.to_thread(run_scrapper, loc, role, job_id)
+    await asyncio.to_thread(run_scrapper, loc, role, job_id)
 
     print("done job scrapping")
   
