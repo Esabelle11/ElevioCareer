@@ -64,7 +64,7 @@ def scrape_jobstreet(location, keyword):
 
         cards = page.query_selector_all('[data-testid="job-card"]')
 
-        cards = cards[:15]
+        cards = cards[:10]
         print("cards found:", len(cards), flush=True)
 
         job_page = context.new_page()

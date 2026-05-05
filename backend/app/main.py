@@ -189,7 +189,7 @@ def job_result(job_id: str, resume_analysis_id: int):
 
     raw_jobs = get_jobs_by_section_random_seed(job_id)
 
-    if not raw_jobs or len(raw_jobs)<10:
+    if not raw_jobs or len(raw_jobs)<5:
         return {"status": "processing"}
 
     resume_text = get_resume_text_by_job_id(resume_analysis_id)

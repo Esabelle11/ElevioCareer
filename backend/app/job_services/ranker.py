@@ -1,40 +1,38 @@
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
-from sentence_transformers import SentenceTransformer
+# from sentence_transformers import SentenceTransformer
 from app.db.connection import get_jobs_by_section_random_seed,get_resume_text_by_job_id
 
-model = SentenceTransformer("all-MiniLM-L6-v2")
+# model = SentenceTransformer("all-MiniLM-L6-v2")
 
 def rank_jobs(resume_text: str, jobs: list[dict]) -> list[dict]:
-    # if not jobs:
-    #     return []
-
-    # documents = [resume_text] + [f'{j.get("title", "")} {j.get("description", "")}' for j in jobs]
-
-    # vectorizer = TfidfVectorizer(stop_words="english")
-    # tfidf = vectorizer.fit_transform(documents)
-
-    # scores = cosine_similarity(tfidf[0:1], tfidf[1:]).flatten()
-    # print("score:",scores)
-
-    # ranked = sorted(zip(jobs, scores), key=lambda x: x[1], reverse=True)
-
+    
     if not jobs:
         return []
 
-    job_texts = [
-        f'{j.get("title", "")} {j.get("description", "")}'
-        for j in jobs
-    ]
+    documents = [resume_text] + [f'{j.get("title", "")} {j.get("description", "")}' for j in jobs]
 
-    embeddings = model.encode([resume_text] + job_texts)
+    vectorizer = TfidfVectorizer(stop_words="english")
+    tfidf = vectorizer.fit_transform(documents)
 
-    resume_vec = embeddings[0]
-    job_vecs = embeddings[1:]
-
-    scores = cosine_similarity([resume_vec], job_vecs).flatten()
+    scores = cosine_similarity(tfidf[0:1], tfidf[1:]).flatten()
+    print("score:",scores)
 
     ranked = sorted(zip(jobs, scores), key=lambda x: x[1], reverse=True)
+
+    # job_texts = [
+    #     f'{j.get("title", "")} {j.get("description", "")}'
+    #     for j in jobs
+    # ]
+
+    # embeddings = model.encode([resume_text] + job_texts)
+
+    # resume_vec = embeddings[0]
+    # job_vecs = embeddings[1:]
+
+    # scores = cosine_similarity([resume_vec], job_vecs).flatten()
+
+    # ranked = sorted(zip(jobs, scores), key=lambda x: x[1], reverse=True)
 
 
     out: list[dict] = []
