@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     DB_PASSWORD: str
     DB_USER: str
     DB_PORT: int = 5432   # 👈 add this
+    USE_WORKER: bool = False
 
 
 

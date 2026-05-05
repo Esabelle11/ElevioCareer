@@ -1,6 +1,7 @@
 import asyncio
 import json
 from typing import Any, Optional
+import uuid
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -172,11 +173,17 @@ async def job_scrapping(
     if len(role) < 2:
         raise HTTPException(status_code=400, detail="job_role is too short.")
 
-    job = enqueue_scrape_job(loc, role)
+    job_id = str(uuid.uuid4())
+
+    if settings.USE_WORKER:
+        enqueue_scrape_job(loc, role, job_id)
+    else:
+        await asyncio.to_thread(run_scrapper, loc, role, job_id)
+
     print("done job scrapping")
   
     return {
-        "job_ids": job,
+        "job_ids": job_id,
         "status": "processing"
     }
     

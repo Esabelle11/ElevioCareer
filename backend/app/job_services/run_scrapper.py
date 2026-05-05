@@ -3,14 +3,11 @@ import random
 from app.scrapers.indeed import scrape_indeed
 from app.scrapers.jobstreet import scrape_jobstreet
 from app.db.connection import upsert_job
-from rq import get_current_job
 
-
-def run_scrapper(location: str, keyword: str) -> str:
+def run_scrapper(location: str, keyword: str, job_id: str) -> str:
     """Fetch jobs from Indeed and JobStreet, store under one shared batch id. Returns batch id."""
-    # batch_id = str(random.randint(1, 1000000))
-    job = get_current_job()
-    job_id = job.id
+   
+
     # print("job_id:",job_id)
     
     # try:
