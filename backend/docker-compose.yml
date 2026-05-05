@@ -1,0 +1,27 @@
+version: "3.9"
+
+services:
+  web:
+    build: .
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
+    ports:
+      - "8000:8000"
+    environment:
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - redis
+    env_file:
+      - .env
+
+  worker:
+    build: .
+    command: rq worker
+    environment:
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - redis
+    env_file:
+      - .env
+
+  redis:
+    image: redis:7
