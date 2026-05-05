@@ -11,8 +11,8 @@ psycopg2-binary
 requests
 scikit-learn
 
-rq
-redis
+# rq
+# redis
 
 
 sentence-transformers
