@@ -10,7 +10,7 @@ def scrape_indeed():
         browser = p.chromium.launch(headless=False)
         page = browser.new_page()
 
-        page.goto(url, timeout=60000)
+        page.goto(url, timeout=3000)
         page.wait_for_timeout(8000)
 
         cards = page.query_selector_all("div.job_seen_beacon")
@@ -39,7 +39,7 @@ def scrape_indeed():
                 # ✅ STEP 2: visit job page
                 if job_url:
                     job_page = browser.new_page()
-                    job_page.goto(job_url, timeout=60000)
+                    job_page.goto(job_url, timeout=5000)
 
                     # wait for description container (Indeed changes this often)
                     try:

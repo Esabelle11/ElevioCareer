@@ -9,14 +9,15 @@ from pydantic import BaseModel
 from app.resume_analysis.ai_client import analyze_with_groq, normalize_ai_payload
 from app.config import settings
 from app.db.connection import check_user_limit, init_db, insert_analysis, list_history
+from app.db.connection import get_jobs_by_section_random_seed,get_resume_text_by_job_id
 from app.resume_analysis.pdf_extract import extract_text_from_pdf
 from app.resume_analysis.scoring import (
     compute_scores,
 )
 from app.job_services.run_scrapper import run_scrapper
-from app.job_services.ranker import get_top_jobs
+from app.job_services.ranker import get_top_jobs,rank_jobs
 from app.job_services.locations import JOB_SEARCH_LOCATIONS
-
+from app.worker.queue import enqueue_scrape_job
 
 app = FastAPI(title="Elevio Career API", version="0.1.0")
 API_PREFIX = "/api"
@@ -110,6 +111,7 @@ async def analyze(
             "clarity_score": scored["clarity_score"],
         },
         "demo_mode": not bool(settings.groq_api_key),
+        "resume_text":resume_text,
     }
     return response
 
@@ -150,9 +152,8 @@ def history(user_id: Optional[str] = None, limit: int = 10) -> dict[str, Any]:
     return {"items": parsed}
 
 
-@app.post(f"{API_PREFIX}/job_recommendation")
-async def job_recommendation(
-    resume_pdf: UploadFile = File(...),
+@app.post(f"{API_PREFIX}/job_scrapping")
+async def job_scrapping(
     job_role: str = Form(...),
     location: str = Form(...),
     user_id: str = Form(...),
@@ -171,33 +172,33 @@ async def job_recommendation(
     if len(role) < 2:
         raise HTTPException(status_code=400, detail="job_role is too short.")
 
-    if not resume_pdf.filename or not resume_pdf.filename.lower().endswith(".pdf"):
-        raise HTTPException(status_code=400, detail="Please upload a PDF resume.")
+    job = enqueue_scrape_job(loc, role)
+    print("done job scrapping")
+  
+    return {
+        "job_ids": job,
+        "status": "processing"
+    }
+    
+    
+@app.get(f"{API_PREFIX}/job_result/{{job_id}}/{{resume_analysis_id}}")
+def job_result(job_id: str, resume_analysis_id: int):
 
-    try:
-        raw_bytes = await resume_pdf.read()
-    except Exception as e:  # noqa: BLE001
-        raise HTTPException(status_code=400, detail=f"Could not read PDF: {e}") from e
+    raw_jobs = get_jobs_by_section_random_seed(job_id)
 
-    if len(raw_bytes) > 15 * 1024 * 1024:
-        raise HTTPException(status_code=400, detail="PDF too large (max 15MB).")
+    if not raw_jobs or len(raw_jobs)<10:
+        return {"status": "processing"}
 
-    try:
-        resume_text = extract_text_from_pdf(raw_bytes)
-    except Exception as e:  # noqa: BLE001
-        raise HTTPException(status_code=400, detail=f"Could not read PDF: {e}") from e
+    resume_text = get_resume_text_by_job_id(resume_analysis_id)
 
-    if len(resume_text.strip()) < 40:
-        raise HTTPException(status_code=400, detail="Resume text too short — check the PDF.")
+    if not resume_text:
+        return {"status": "resume_not_found"}
 
-    # Playwright sync API must not run on the asyncio loop (FastAPI / uvicorn).
-    batch_id = await asyncio.to_thread(run_scrapper, loc, role)
-    jobs = get_top_jobs(batch_id, resume_text)
+    jobs = rank_jobs(resume_text, raw_jobs)
 
     return {
+        "status": "done",
         "jobs": jobs,
-        "location": loc,
-        "job_role": role,
-        "batch_id": batch_id,
         "count": len(jobs),
+        "ok": True,
     }

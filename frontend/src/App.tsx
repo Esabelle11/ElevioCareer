@@ -33,12 +33,22 @@ type JobRecItem = {
   relevance_score: number;
 };
 
-type JobRecommendationResponse = {
-  jobs: JobRecItem[];
-  location: string;
-  job_role: string;
-  batch_id: string;
-  count: number;
+type UploadHistoryResponse = {
+  id?: number;
+  ok?: boolean;
+};
+
+type JobScrappingResponse = {
+  job_ids?: string;
+  status?: string;
+  detail?: unknown;
+};
+
+type JobResultResponse = {
+  status?: "processing" | "done" | "resume_not_found";
+  jobs?: JobRecItem[];
+  count?: number;
+  detail?: unknown;
 };
 
 /** Used if /api/job_locations cannot be loaded */
@@ -110,6 +120,8 @@ export default function App() {
   const [jobRecLoading, setJobRecLoading] = useState(false);
   const [jobRecError, setJobRecError] = useState<string | null>(null);
   const [jobRecComplete, setJobRecComplete] = useState(false);
+  const [jobRecStatusMsg, setJobRecStatusMsg] = useState<string | null>(null);
+  const [resumeAnalysisId, setResumeAnalysisId] = useState<number | null>(null);
   const loadingBoxRef = useRef<HTMLDivElement | null>(null);
   const resultsBoxRef = useRef<HTMLDivElement | null>(null);
   const jobRecSectionRef = useRef<HTMLDivElement | null>(null);
@@ -206,12 +218,14 @@ export default function App() {
     setJobRecs([]);
     setJobRecError(null);
     setJobRecComplete(false);
+    setJobRecStatusMsg(null);
   }, [result]);
 
   async function onAnalyze(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     setResult(null);
+    setResumeAnalysisId(null);
     if (!file) {
       setError("Please choose a PDF resume.");
       return;
@@ -254,17 +268,23 @@ export default function App() {
       }
       setResult(data as AnalyzeResponse);
 
-      await fetch(`${API}/api/upload_history`, {
+      const saveResp = await fetch(`${API}/api/upload_history`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           user_id: userId,
-          resume_text: "(stored from session)",
+          resume_text: data.resume_text,
           job_text: jobText.slice(0, 2000),
           total_score: data.total_score,
           ai_output: { ...data, missing_skills: data.missing_skills },
         }),
-      }).catch(() => {});
+      }).catch(() => null);
+      if (saveResp?.ok) {
+        const saveData = (await saveResp.json().catch(() => ({}))) as UploadHistoryResponse;
+        if (typeof saveData.id === "number") {
+          setResumeAnalysisId(saveData.id);
+        }
+      }
       fetchHistory();
     } catch {
       setError("Network error — is the API running on port 8000?");
@@ -284,8 +304,13 @@ export default function App() {
   async function onFindJobs(e: React.FormEvent) {
     e.preventDefault();
     setJobRecError(null);
+    setJobRecStatusMsg(null);
     if (!file || !result) {
       setJobRecError("Upload a resume and run analysis first.");
+      return;
+    }
+    if (!resumeAnalysisId) {
+      setJobRecError("Run analysis first so we can save resume history.");
       return;
     }
     const loc = selectedLocation.trim();
@@ -304,32 +329,75 @@ export default function App() {
       localStorage.setItem("user_id", userId);
     }
     setJobRecLoading(true);
+    setJobRecComplete(false);
+    setJobRecs([]);
     try {
       const fd = new FormData();
-      fd.append("resume_pdf", file);
       fd.append("job_role", role);
       fd.append("location", loc);
       fd.append("user_id", userId);
-      const r = await fetch(`${API}/api/job_recommendation`, { method: "POST", body: fd });
-      const data = (await r.json().catch(() => ({}))) as JobRecommendationResponse & {
-        detail?: unknown;
-      };
-      if (!r.ok) {
+      const scrapeResp = await fetch(`${API}/api/job_scrapping`, { method: "POST", body: fd });
+      const scrapeData = (await scrapeResp.json().catch(() => ({}))) as JobScrappingResponse;
+      if (!scrapeResp.ok) {
         const msg =
-          typeof data.detail === "string"
-            ? data.detail
+          typeof scrapeData.detail === "string"
+            ? scrapeData.detail
             : "Could not fetch job recommendations.";
         setJobRecError(msg);
-        setJobRecs([]);
-        setJobRecComplete(false);
         return;
       }
-      setJobRecs(data.jobs ?? []);
-      setJobRecComplete(true);
+
+      const jobId = (scrapeData.job_ids ?? "").trim();
+      if (!jobId) {
+        setJobRecError("Scraping job ID was not returned.");
+        return;
+      }
+
+      setJobRecStatusMsg("Scraping jobs from Indeed and JobStreet...");
+      const maxPollAttempts = 30;
+      const pollIntervalMs = 2500;
+      let done = false;
+      let failed = false;
+      for (let attempt = 0; attempt < maxPollAttempts; attempt += 1) {
+        const resultResp = await fetch(
+          `${API}/api/job_result/${encodeURIComponent(jobId)}/${resumeAnalysisId}`
+        );
+        const resultData = (await resultResp.json().catch(() => ({}))) as JobResultResponse;
+        if (!resultResp.ok) {
+          const msg =
+            typeof resultData.detail === "string"
+              ? resultData.detail
+              : "Could not get scraping results.";
+          setJobRecError(msg);
+          failed = true;
+          break;
+        }
+        if (resultData.status === "done") {
+          setJobRecs(resultData.jobs ?? []);
+          setJobRecComplete(true);
+          setJobRecStatusMsg(null);
+          done = true;
+          break;
+        }
+        if (resultData.status === "resume_not_found") {
+          setJobRecError("Resume analysis record not found. Please analyze again.");
+          failed = true;
+          break;
+        }
+        setJobRecStatusMsg(
+          `Searching jobs... (${attempt + 1}/${maxPollAttempts})`
+        );
+        await new Promise((resolve) => window.setTimeout(resolve, pollIntervalMs));
+      }
+      if (!done && !failed) {
+        setJobRecError("Still processing. Please try again in a moment.");
+        setJobRecStatusMsg(null);
+      }
       jobRecSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     } catch {
       setJobRecError("Network error — is the API running?");
       setJobRecs([]);
+      setJobRecStatusMsg(null);
     } finally {
       setJobRecLoading(false);
     }
@@ -848,6 +916,11 @@ export default function App() {
                         Pre-filled from your analysis. Edit if you want a different search term.
                       </p>
                     </div>
+                    {jobRecStatusMsg && (
+                      <p className="rounded-lg border border-elevio-blue/40 bg-elevio-blue/10 px-3 py-2 text-sm text-elevio-blue">
+                        {jobRecStatusMsg}
+                      </p>
+                    )}
                     {jobRecError && (
                       <p className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-200">
                         {jobRecError}

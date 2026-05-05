@@ -50,7 +50,7 @@ def scrape_indeed(location, keyword):
         context = new_browser_context(browser, timezone_id=tz)
         page = context.new_page()
 
-        page.goto(url, timeout=90000, wait_until="domcontentloaded")
+        page.goto(url, timeout=3000, wait_until="domcontentloaded")
         page.wait_for_timeout(2500)
 
         if _indeed_likely_blocked(page):
@@ -94,7 +94,7 @@ def scrape_indeed(location, keyword):
 
                 if job_url:
                     try:
-                        job_page.goto(job_url, timeout=90000, wait_until="domcontentloaded")
+                        job_page.goto(job_url, timeout=3000, wait_until="domcontentloaded")
                         job_page.wait_for_timeout(1500)
                         if _indeed_likely_blocked(job_page):
                             print("Indeed: detail page blocked, skipping description")

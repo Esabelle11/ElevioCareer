@@ -11,7 +11,7 @@ def scrape_jobstreet():
         browser = p.chromium.launch(headless=False)
         page = browser.new_page()
 
-        page.goto(url, timeout=60000)
+        page.goto(url, timeout=3000)
         page.wait_for_timeout(8000)
 
         # wait for content to load
@@ -46,7 +46,7 @@ def scrape_jobstreet():
                 # ✅ STEP 2: visit job page
                 if job_url:
                     job_page = browser.new_page()
-                    job_page.goto(job_url, timeout=60000)
+                    job_page.goto(job_url, timeout=5000)
 
                     # wait for description container (Indeed changes this often)
                     try:

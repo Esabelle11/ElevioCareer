@@ -47,7 +47,7 @@ def scrape_jobstreet(location, keyword):
         context = new_browser_context(browser, timezone_id=tz)
         page = context.new_page()
 
-        page.goto(url, timeout=90000, wait_until="domcontentloaded")
+        page.goto(url, timeout=3000, wait_until="domcontentloaded")
         page.wait_for_timeout(4000)
 
         if _jobstreet_likely_blocked(page):
@@ -64,7 +64,7 @@ def scrape_jobstreet(location, keyword):
 
         cards = page.query_selector_all('[data-testid="job-card"]')
 
-        cards = cards[:10]
+        cards = cards[:15]
         print("cards found:", len(cards), flush=True)
 
         job_page = context.new_page()
@@ -94,7 +94,7 @@ def scrape_jobstreet(location, keyword):
 
                 if job_url:
                     try:
-                        job_page.goto(job_url, timeout=90000, wait_until="domcontentloaded")
+                        job_page.goto(job_url, timeout=3000, wait_until="domcontentloaded")
                         job_page.wait_for_timeout(1500)
                         if not _jobstreet_likely_blocked(job_page):
                             job_page.wait_for_selector(

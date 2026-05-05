@@ -80,6 +80,24 @@ def get_jobs_by_section_random_seed(section_random_seed):
             rows = cur.fetchall()
     return [{"title": r[0], "company": r[1], "description": r[2], "job_url": r[3], "source": r[4]} for r in rows]    
 
+
+# -----------------------------
+# GET JOBS BY SECTION RANDOM SEED
+# -----------------------------
+def get_resume_text_by_job_id(resume_analysis_id: int):
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT resume_text FROM resume_analysis WHERE id = %s",
+                (resume_analysis_id,),
+            )
+            row = cur.fetchone()
+
+    if not row:
+        return None
+
+    return row[0]  # content
+
 # -----------------------------
 # LIMIT CHECK
 # -----------------------------

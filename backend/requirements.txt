@@ -11,3 +11,8 @@ psycopg2-binary
 requests
 scikit-learn
 
+rq
+redis
+
+
+sentence-transformers
