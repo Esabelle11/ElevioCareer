@@ -10,6 +10,7 @@ pipeline/venv/
 
 __pycache__
 .DS_Store
+DS_Store
 *.pyc
 backend/.DS_Store
 backend/app/__pycache__/__init__.cpython-311.pyc
@@ -19,3 +20,5 @@ backend/app/__pycache__/main.cpython-311.pyc
 # Python
 __pycache__/
 *.py[cod]
+
+forme.txt

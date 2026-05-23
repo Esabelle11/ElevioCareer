@@ -1,0 +1,60 @@
+<mxfile host="Electron">
+  <diagram name="Page-1" id="cUru419QHu0FnElrBJjt">
+    <mxGraphModel dx="629" dy="423" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="Ztzw1AgEBZeeiTuuDqHZ-3" edge="1" parent="1" source="Ztzw1AgEBZeeiTuuDqHZ-1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" target="Ztzw1AgEBZeeiTuuDqHZ-2" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="Ztzw1AgEBZeeiTuuDqHZ-4" connectable="0" parent="Ztzw1AgEBZeeiTuuDqHZ-3" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="http request" vertex="1">
+          <mxGeometry relative="1" x="-0.275" y="-1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="Ztzw1AgEBZeeiTuuDqHZ-1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;" value="&lt;font style=&quot;font-size: 16px;&quot; face=&quot;Times New Roman&quot;&gt;&lt;b&gt;Frontend&lt;/b&gt;&lt;/font&gt;" vertex="1">
+          <mxGeometry height="50" width="145" x="327.5" y="130" as="geometry" />
+        </mxCell>
+        <mxCell id="Ztzw1AgEBZeeiTuuDqHZ-2" parent="1" style="whiteSpace=wrap;html=1;rounded=1;" value="" vertex="1">
+          <mxGeometry height="110" width="490" x="155" y="230" as="geometry" />
+        </mxCell>
+        <mxCell id="Ztzw1AgEBZeeiTuuDqHZ-5" parent="1" style="rounded=1;whiteSpace=wrap;html=1;" value="&lt;span style=&quot;caret-color: rgb(0, 0, 0); color: rgb(0, 0, 0); font-family: -webkit-standard; font-size: medium; text-align: start;&quot;&gt;PDF Parser&lt;span class=&quot;Apple-converted-space&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/span&gt;" vertex="1">
+          <mxGeometry height="60" width="120" x="180" y="257" as="geometry" />
+        </mxCell>
+        <mxCell id="Ztzw1AgEBZeeiTuuDqHZ-6" parent="1" style="rounded=1;whiteSpace=wrap;html=1;" value="&lt;span style=&quot;caret-color: rgb(0, 0, 0); color: rgb(0, 0, 0); font-family: -webkit-standard; font-size: medium; text-align: start;&quot;&gt;Analysis Engine&lt;/span&gt;" vertex="1">
+          <mxGeometry height="60" width="120" x="340" y="257" as="geometry" />
+        </mxCell>
+        <mxCell id="Ztzw1AgEBZeeiTuuDqHZ-7" parent="1" style="rounded=1;whiteSpace=wrap;html=1;" value="&lt;span style=&quot;caret-color: rgb(0, 0, 0); color: rgb(0, 0, 0); font-family: -webkit-standard; font-size: medium; text-align: start;&quot;&gt;Job Scraper&lt;/span&gt;" vertex="1">
+          <mxGeometry height="60" width="120" x="500" y="257" as="geometry" />
+        </mxCell>
+        <mxCell id="Ztzw1AgEBZeeiTuuDqHZ-8" parent="1" style="rounded=1;whiteSpace=wrap;html=1;" value="&lt;span style=&quot;caret-color: rgb(0, 0, 0); color: rgb(0, 0, 0); font-family: -webkit-standard; font-size: medium; text-align: start;&quot;&gt;Groq Cloud&lt;/span&gt;&lt;div&gt;&lt;span style=&quot;caret-color: rgb(0, 0, 0); color: rgb(0, 0, 0); font-family: -webkit-standard; font-size: medium; text-align: start;&quot;&gt;(LLM AI)&lt;/span&gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="60" width="120" x="180" y="380" as="geometry" />
+        </mxCell>
+        <mxCell id="Ztzw1AgEBZeeiTuuDqHZ-9" parent="1" style="rounded=1;whiteSpace=wrap;html=1;" value="&lt;span style=&quot;caret-color: rgb(0, 0, 0); color: rgb(0, 0, 0); font-family: -webkit-standard; font-size: medium; text-align: start;&quot;&gt;Job Boards&lt;br&gt;&lt;/span&gt;&lt;div&gt;&lt;span style=&quot;caret-color: rgb(0, 0, 0); color: rgb(0, 0, 0); font-family: -webkit-standard; font-size: medium; text-align: start;&quot;&gt;&lt;span class=&quot;Apple-converted-space&quot;&gt;&lt;span style=&quot;color: rgb(0, 0, 0); caret-color: rgb(0, 0, 0); background-color: transparent;&quot;&gt;(Web Scrap)&lt;/span&gt;&amp;nbsp;&lt;/span&gt;&lt;/span&gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="60" width="120" x="500" y="380" as="geometry" />
+        </mxCell>
+        <mxCell id="Ztzw1AgEBZeeiTuuDqHZ-10" parent="1" style="rounded=1;whiteSpace=wrap;html=1;" value="&lt;span style=&quot;caret-color: rgb(0, 0, 0); color: rgb(0, 0, 0); font-family: -webkit-standard; font-size: medium; text-align: start;&quot;&gt;SQLite/Post&lt;br&gt;&lt;/span&gt;&lt;div&gt;&lt;span style=&quot;caret-color: rgb(0, 0, 0); color: rgb(0, 0, 0); font-family: -webkit-standard; font-size: medium; text-align: start;&quot;&gt;&lt;span class=&quot;Apple-converted-space&quot;&gt;&lt;span style=&quot;color: rgb(0, 0, 0); caret-color: rgb(0, 0, 0); background-color: transparent;&quot;&gt;(Database)&lt;/span&gt;&lt;span class=&quot;Apple-converted-space&quot; style=&quot;color: rgb(0, 0, 0); caret-color: rgb(0, 0, 0); background-color: transparent;&quot;&gt;&amp;nbsp;&lt;/span&gt;&amp;nbsp;&lt;/span&gt;&lt;/span&gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="60" width="120" x="340" y="380" as="geometry" />
+        </mxCell>
+        <mxCell id="Ztzw1AgEBZeeiTuuDqHZ-11" edge="1" parent="1" source="Ztzw1AgEBZeeiTuuDqHZ-2" style="endArrow=classic;html=1;rounded=0;exitX=0.173;exitY=1.023;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="Ztzw1AgEBZeeiTuuDqHZ-8" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="400" y="350" as="sourcePoint" />
+            <mxPoint x="450" y="300" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="Ztzw1AgEBZeeiTuuDqHZ-12" edge="1" parent="1" style="endArrow=classic;html=1;rounded=0;exitX=0.173;exitY=1.023;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="399.78" y="340" as="sourcePoint" />
+            <mxPoint x="399.78" y="377" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="Ztzw1AgEBZeeiTuuDqHZ-13" edge="1" parent="1" style="endArrow=classic;html=1;rounded=0;exitX=0.173;exitY=1.023;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="559.78" y="343" as="sourcePoint" />
+            <mxPoint x="559.78" y="380" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
